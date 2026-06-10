@@ -174,6 +174,7 @@ tbody td{padding:9px 12px;vertical-align:middle}
       <button class="tab" onclick="showTab('baixas')">✅ Baixas</button>
       <button class="tab" onclick="showTab('metas')">🎯 Metas</button>
       <button class="tab" onclick="showTab('importar')">📥 Importar</button>
+      <button class="tab" onclick="showTab('conciliar')">🔗 Conciliação</button>
     </div>
 
     <!-- PAINEL -->
@@ -345,6 +346,55 @@ tbody td{padding:9px 12px;vertical-align:middle}
       </div>
     </div>
 
+    <!-- CONCILIAÇÃO -->
+    <div id="sec-conciliar" class="section">
+      <div class="card">
+        <div class="card-header">
+          <svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          <h3>Conciliação bancária — Banco Inter</h3>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.7">
+          Importe o extrato CSV do Banco Inter. O sistema compara automaticamente com seus lançamentos e identifica os que casam por <strong>valor + data + nome</strong>.
+        </p>
+        <div class="imp-box" onclick="document.getElementById('csv-in').click()">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E8008A" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p style="font-size:14px;color:var(--text2);margin-top:.5rem">Clique para selecionar o extrato CSV do Banco Inter</p>
+          <small style="font-size:12px;color:var(--text3)">Formato: Extrato-DD-MM-AAAA-a-DD-MM-AAAA-CSV.csv</small>
+          <input type="file" id="csv-in" accept=".csv" style="display:none" onchange="handleCSV(this)">
+        </div>
+        <div id="conc-resumo" style="display:none;margin-bottom:1rem">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem">
+            <div class="metric" style="border-left-color:#1D9E75"><div class="metric-label">Conciliados</div><div class="metric-value cv-green" id="conc-ok">0</div></div>
+            <div class="metric" style="border-left-color:#E8008A"><div class="metric-label">Não encontrados</div><div class="metric-value cv-rosa" id="conc-nao">0</div></div>
+            <div class="metric" style="border-left-color:#BA7517"><div class="metric-label">Múltiplos candidatos</div><div class="metric-value cv-amber" id="conc-mult">0</div></div>
+            <div class="metric" style="border-left-color:#1a1a1a"><div class="metric-label">Total no extrato</div><div class="metric-value" id="conc-total">0</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+            <button class="btn btn-green btn-sm" onclick="confirmarTodosConciliados()">✓ Baixar todos conciliados</button>
+            <button class="btn btn-sm" onclick="filtrarConc('todos')" id="fb-todos" style="border-color:var(--rosa);color:var(--rosa)">Todos</button>
+            <button class="btn btn-sm" onclick="filtrarConc('conciliado')" id="fb-conc">✓ Conciliados</button>
+            <button class="btn btn-sm" onclick="filtrarConc('multiplo')" id="fb-mult">⚠ Múltiplos</button>
+            <button class="btn btn-sm" onclick="filtrarConc('nao_encontrado')" id="fb-nao">✗ Não encontrados</button>
+          </div>
+        </div>
+        <div id="conc-tabela" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Data extrato</th>
+                <th>Descrição extrato</th>
+                <th style="text-align:right">Valor</th>
+                <th>Status</th>
+                <th>Lançamento casado</th>
+                <th>Ação</th>
+              </tr></thead>
+              <tbody id="tbody-conc"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -452,7 +502,7 @@ async function loadAll(){
 function showTab(t){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  const tabs=['dash','receitas','despesas','baixas','metas','importar'];
+  const tabs=['dash','receitas','despesas','baixas','metas','importar','conciliar'];
   document.querySelectorAll('.tab')[tabs.indexOf(t)].classList.add('active');
   document.getElementById('sec-'+t).classList.add('active');
   if(t==='dash')renderDash();
@@ -781,6 +831,223 @@ function resetImp(){
   document.getElementById('prev-wrap').style.display='none';
   document.getElementById('file-in').value='';
   document.getElementById('imp-res').textContent='';
+}
+
+/* ===== CONCILIAÇÃO BANCO INTER ===== */
+let extratoLinhas = [];
+let concResultados = [];
+
+function handleCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const texto=e.target.result;
+    const linhas=texto.split('\n');
+    extratoLinhas=[];
+    // Pular cabeçalho (linhas 1-5), começar da linha 6 (índice 5)
+    for(let i=6;i<linhas.length;i++){
+      const l=linhas[i].trim();
+      if(!l)continue;
+      const partes=l.split(';');
+      if(partes.length<3)continue;
+      const dataStr=partes[0]?partes[0].trim():'';
+      const descRaw=partes[1]?partes[1].trim():'';
+      const valStr=partes[2]?partes[2].trim():'';
+      if(!dataStr||!valStr)continue;
+      // Converter data dd/mm/yyyy para yyyy-mm-dd
+      const dp=dataStr.split('/');
+      if(dp.length!==3)continue;
+      const dataISO=`${dp[2]}-${dp[1].padStart(2,'0')}-${dp[0].padStart(2,'0')}`;
+      // Converter valor (vírgula para ponto)
+      const valNum=parseFloat(valStr.replace(/\./g,'').replace(',','.'));
+      if(isNaN(valNum))continue;
+      // Extrair nome do pagador/beneficiário da descrição
+      let nome='';
+      const match=descRaw.match(/"([^"]+)"/);
+      if(match)nome=match[1].replace(/^Cp :\d+-/,'').trim();
+      else nome=descRaw;
+      extratoLinhas.push({data:dataISO,descRaw,nome,valor:valNum,tipo:valNum>=0?'receita':'despesa'});
+    }
+    processarConciliacao();
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function similaridade(a,b){
+  if(!a||!b)return 0;
+  a=a.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
+  b=b.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
+  if(a===b)return 1;
+  const wa=new Set(a.split(/\s+/).filter(w=>w.length>2));
+  const wb=new Set(b.split(/\s+/).filter(w=>w.length>2));
+  if(!wa.size||!wb.size)return 0;
+  let comum=0;
+  wa.forEach(w=>{if(wb.has(w))comum++;});
+  return comum/Math.max(wa.size,wb.size);
+}
+
+function processarConciliacao(){
+  concResultados=[];
+  extratoLinhas.forEach(ext=>{
+    const valAbs=Math.abs(ext.valor);
+    // Buscar lançamentos com mesmo tipo e valor
+    const candidatos=items.filter(i=>{
+      if(i.tipo!==ext.tipo)return false;
+      if(Math.abs(i.val-valAbs)>0.02)return false;
+      // Data próxima (margem 5 dias)
+      const di=new Date((i.vencimento||i.data)+'T00:00:00');
+      const de=new Date(ext.data+'T00:00:00');
+      const diff=Math.abs(di-de)/(1000*60*60*24);
+      if(diff>5)return false;
+      return true;
+    });
+    let status,casado=null,candidatosList=[];
+    if(candidatos.length===0){
+      status='nao_encontrado';
+    } else if(candidatos.length===1){
+      // Verificar similaridade de nome
+      const sim=similaridade(ext.nome,candidatos[0].desc);
+      status=sim>=0.2||candidatos.length===1?'conciliado':'multiplo';
+      casado=candidatos[0];
+    } else {
+      // Múltiplos — tentar nome
+      const porNome=candidatos.sort((a,b)=>similaridade(ext.nome,b.desc)-similaridade(ext.nome,a.desc));
+      const melhor=porNome[0];
+      const simMelhor=similaridade(ext.nome,melhor.desc);
+      if(simMelhor>=0.3){
+        status='conciliado';
+        casado=melhor;
+      } else {
+        status='multiplo';
+        candidatosList=porNome.slice(0,3);
+      }
+    }
+    concResultados.push({ext,status,casado,candidatosList});
+  });
+  renderConciliacao('todos');
+}
+
+function filtrarConc(tipo){
+  ['todos','conciliado','multiplo','nao_encontrado'].forEach(t=>{
+    const btn=document.getElementById('fb-'+({todos:'todos',conciliado:'conc',multiplo:'mult',nao_encontrado:'nao'}[t]||t));
+    if(btn)btn.style.cssText=t===tipo?'border-color:var(--rosa);color:var(--rosa)':'';
+  });
+  renderConciliacao(tipo);
+}
+
+function renderConciliacao(filtro){
+  const ok=concResultados.filter(r=>r.status==='conciliado').length;
+  const nao=concResultados.filter(r=>r.status==='nao_encontrado').length;
+  const mult=concResultados.filter(r=>r.status==='multiplo').length;
+  document.getElementById('conc-ok').textContent=ok;
+  document.getElementById('conc-nao').textContent=nao;
+  document.getElementById('conc-mult').textContent=mult;
+  document.getElementById('conc-total').textContent=concResultados.length;
+  document.getElementById('conc-resumo').style.display='block';
+  document.getElementById('conc-tabela').style.display='block';
+
+  const filtered=filtro==='todos'?concResultados:concResultados.filter(r=>r.status===filtro);
+  const tbody=document.getElementById('tbody-conc');
+  if(!filtered.length){tbody.innerHTML='<tr><td colspan="6" class="empty">Nenhum item neste filtro.</td></tr>';return;}
+
+  tbody.innerHTML=filtered.map((r,idx)=>{
+    const{ext,status,casado,candidatosList}=r;
+    const realIdx=concResultados.indexOf(r);
+    const valColor=ext.valor>=0?'var(--green)':'var(--red)';
+    const valFmt='R$ '+Math.abs(ext.valor).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    let statusBadge='';
+    let casadoCell='';
+    let acaoCell='';
+    if(status==='conciliado'){
+      statusBadge='<span class="badge b-baixado">✓ Conciliado</span>';
+      casadoCell=`<span style="font-size:12px"><strong>${casado.desc}</strong><br><span style="color:var(--text2)">${fmtDate(casado.vencimento||casado.data)}</span></span>`;
+      if(!casado.baixado){
+        acaoCell=`<button class="btn btn-sm btn-green" onclick="baixarConciliado(${realIdx})">✓ Dar baixa</button>`;
+      } else {
+        acaoCell='<span style="font-size:12px;color:var(--green)">✓ Já baixado</span>';
+      }
+    } else if(status==='multiplo'){
+      statusBadge='<span class="badge b-pend">⚠ Múltiplos</span>';
+      casadoCell=`<select style="font-size:12px;height:30px" id="sel-${realIdx}">
+        <option value="">— escolha o lançamento —</option>
+        ${candidatosList.map(c=>`<option value="${c.id}">${c.desc} · ${fmtDate(c.vencimento||c.data)} · R$${c.val}</option>`).join('')}
+      </select>`;
+      acaoCell=`<button class="btn btn-sm btn-rosa" onclick="confirmarManual(${realIdx})">Confirmar</button>`;
+    } else {
+      statusBadge='<span class="badge b-desp">✗ Não encontrado</span>';
+      casadoCell=`<span style="font-size:12px;color:var(--text3)">Sem correspondência</span>`;
+      acaoCell=`<button class="btn btn-sm" onclick="criarLancamento(${realIdx})" style="font-size:11px">+ Criar lançamento</button>`;
+    }
+    return`<tr>
+      <td style="font-size:12px">${fmtDate(ext.data)}</td>
+      <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ext.descRaw}">${ext.nome||ext.descRaw}</td>
+      <td style="text-align:right;font-weight:600;color:${valColor}">${valFmt}</td>
+      <td>${statusBadge}</td>
+      <td>${casadoCell}</td>
+      <td>${acaoCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function baixarConciliado(idx){
+  const r=concResultados[idx];
+  if(!r||!r.casado)return;
+  await darBaixa(r.casado.id);
+  r.casado.baixado=true;
+  renderConciliacao('todos');
+}
+
+async function confirmarManual(idx){
+  const r=concResultados[idx];
+  const sel=document.getElementById('sel-'+idx);
+  if(!sel||!sel.value){alert('Selecione um lançamento.');return;}
+  const id=parseInt(sel.value);
+  const item=items.find(i=>i.id===id);
+  if(!item)return;
+  r.casado=item;r.status='conciliado';
+  await darBaixa(id);
+  renderConciliacao('todos');
+}
+
+async function criarLancamento(idx){
+  const r=concResultados[idx];
+  const ext=r.ext;
+  const valAbs=Math.abs(ext.valor);
+  const desc=ext.nome||ext.descRaw;
+  if(!confirm(`Criar lançamento?\n${desc}\nR$ ${valAbs.toFixed(2)}\n${fmtDate(ext.data)}`))return;
+  sync(true);
+  const{data:res,error}=await sb.from('lancamentos').insert({
+    user_id:currentUser.id,
+    descricao:desc,
+    cat:'Importado do extrato',
+    val:valAbs,
+    data:ext.data,
+    vencimento:ext.data,
+    tipo:ext.tipo,
+    forma:'PIX/Transferência',
+    baixado:true,
+    data_baixa:ext.data
+  }).select().single();
+  sync(false);
+  if(error){alert('Erro: '+error.message);return;}
+  const novoItem={id:res.id,desc,cat:'Importado do extrato',val:valAbs,data:ext.data,vencimento:ext.data,tipo:ext.tipo,forma:'PIX/Transferência',baixado:true,dataBaixa:ext.data};
+  items.unshift(novoItem);
+  r.casado=novoItem;r.status='conciliado';
+  updCat(ext.tipo);
+  renderConciliacao('todos');
+  renderDash();
+}
+
+async function confirmarTodosConciliados(){
+  const pendentes=concResultados.filter(r=>r.status==='conciliado'&&r.casado&&!r.casado.baixado);
+  if(!pendentes.length){alert('Nenhum lançamento conciliado pendente de baixa.');return;}
+  if(!confirm(`Dar baixa em ${pendentes.length} lançamentos conciliados?`))return;
+  for(const r of pendentes){
+    await darBaixa(r.casado.id);
+    r.casado.baixado=true;
+  }
+  renderConciliacao('todos');
+  alert(`✓ ${pendentes.length} lançamentos baixados com sucesso!`);
 }
 </script>
 </body>
