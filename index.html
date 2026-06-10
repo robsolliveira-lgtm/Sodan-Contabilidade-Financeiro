@@ -11,7 +11,7 @@
 :root{
   --rosa:#E8008A;--rosa-hover:#C4007A;--rosa-light:#fce6f3;
   --preto:#1a1a1a;--bg:#fff;--bg2:#f7f7f7;--bg3:#f0f0f0;
-  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --text:#1a1a1a;--text2:#333;--text3:#555;
   --border:rgba(0,0,0,0.11);--border2:rgba(0,0,0,0.2);
   --green:#1D9E75;--green-bg:#E1F5EE;--green-text:#085041;
   --red:#E24B4A;--red-bg:#FCEBEB;--red-text:#A32D2D;
@@ -47,7 +47,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .logo-text{display:flex;flex-direction:column;line-height:1}
 .logo-sodan{font-size:18px;font-weight:700;color:#fff;letter-spacing:.5px}
 .logo-cont{font-size:9px;font-weight:700;color:var(--rosa);letter-spacing:2.5px;text-transform:uppercase;margin-top:2px}
-.header-user{margin-left:auto;font-size:12px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:10px}
+.header-user{margin-left:auto;font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:10px}
 .btn-logout{background:none;border:0.5px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer}
 .btn-logout:hover{background:rgba(255,255,255,.08);color:#fff}
 .container{max-width:1020px;margin:0 auto;padding:1.25rem 1rem}
@@ -62,14 +62,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ci{width:18px;height:18px;color:var(--rosa);flex-shrink:0}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:1.25rem}
 .metric{background:var(--bg2);border-radius:var(--r);padding:.875rem;border-left:3px solid var(--rosa)}
-.metric-label{font-size:11px;color:var(--text3);margin-bottom:5px}
+.metric-label{font-size:11px;color:#444;margin-bottom:5px}
 .metric-value{font-size:19px;font-weight:600}
 .cv-green{color:var(--green)}.cv-red{color:var(--red)}.cv-amber{color:var(--amber)}.cv-rosa{color:var(--rosa)}
 .periodo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem}
 .form-row{display:grid;gap:8px;margin-bottom:1rem}
 .c7{grid-template-columns:1fr 1fr 110px 110px 110px 100px 36px}
 .c4{grid-template-columns:1fr 1fr 130px 36px}
-label{font-size:10px;color:var(--text3);display:block;margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+label{font-size:10px;color:#555;display:block;margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 input,select{height:36px;padding:0 10px;font-size:13px;border:0.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);width:100%;outline:none}
 input:focus,select:focus{box-shadow:0 0 0 2px rgba(232,0,138,.18);border-color:var(--rosa)}
 .btn{height:36px;padding:0 14px;font-size:13px;border-radius:var(--r);border:0.5px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
@@ -100,9 +100,9 @@ tbody td{padding:9px 12px;vertical-align:middle}
 .empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
 .fr{display:flex;gap:8px;margin-bottom:1rem;align-items:flex-end;flex-wrap:wrap}
 .fg{display:flex;flex-direction:column;gap:3px}
-.fg label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.fg label{font-size:10px;color:#555;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .fg select,.fg input{height:32px;font-size:12px;width:auto;min-width:120px}
-.sec-title{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;letter-spacing:.07em;text-transform:uppercase}
+.sec-title{font-size:11px;font-weight:700;color:#444;margin-bottom:10px;letter-spacing:.07em;text-transform:uppercase}
 .toolbar{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap;gap:8px}
 .meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:1.25rem}
 .meta-card{border:0.5px solid var(--border);border-radius:var(--rl);padding:1rem;background:var(--bg);border-top:3px solid var(--rosa)}
